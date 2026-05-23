@@ -68,9 +68,9 @@ def evolve_strategy(client) -> str:
         model="claude-haiku-4-5-20251001",
         max_tokens=400,
         system=(
-            "You are an Instagram growth strategist for story.matters_, an AI storytelling account. "
+            "You are an Instagram growth strategist for ooumph_official, a Web3 and OoumphCoin crypto community account. "
             "Analyze post performance and write an updated strategy in 3-5 bullet points. "
-            "Focus on topics, formats, and hooks that drive most engagement."
+            "Focus on crypto/Web3 topics, formats, and hooks that drive most engagement."
         ),
         messages=[{"role": "user", "content": f"Recent performance:\n{summary}\n\nWrite updated strategy:"}]
     )
