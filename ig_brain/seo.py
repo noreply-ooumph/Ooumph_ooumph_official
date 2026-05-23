@@ -10,17 +10,21 @@ def pick_hashtags(topic: str, count: int = 25) -> list:
     t = topic.lower()
     pool = []
     if any(w in t for w in ["myth","mahab","ramay","vedic","hindu","epic","sacred","symbol","devotion"]):
-        pool += HASHTAG_POOLS["mythology"]
+        pool += HASHTAG_POOLS.get("mythology", [])
     if any(w in t for w in ["history","ancient","nalanda","civiliz","war","king","empire","lost"]):
-        pool += HASHTAG_POOLS["history"]
+        pool += HASHTAG_POOLS.get("history", [])
     if any(w in t for w in ["ai","artificial","generat","tech","future","digital"]):
-        pool += HASHTAG_POOLS["ai"]
+        pool += HASHTAG_POOLS.get("ai", [])
     if any(w in t for w in ["animal","hybrid","wildlife","nature","shark","horse"]):
-        pool += HASHTAG_POOLS["animals"]
+        pool += HASHTAG_POOLS.get("animals", [])
     if any(w in t for w in ["philosoph","wisdom","conscious","soul","spirit","meaning"]):
-        pool += HASHTAG_POOLS["philosophy"]
-    pool += HASHTAG_POOLS["storytelling"]
-    pool += HASHTAG_POOLS["general"]
+        pool += HASHTAG_POOLS.get("philosophy", [])
+    if any(w in t for w in ["crypto","coin","blockchain","web3","nft","defi","token"]):
+        pool += HASHTAG_POOLS.get("crypto", [])
+    if any(w in t for w in ["startup","founder","build","entrepreneur","india","tech"]):
+        pool += HASHTAG_POOLS.get("startup", [])
+    pool += HASHTAG_POOLS.get("storytelling", HASHTAG_POOLS.get("motivation", []))
+    pool += HASHTAG_POOLS.get("general", [])
     seen, out = set(), []
     for tag in pool:
         if tag not in seen:
