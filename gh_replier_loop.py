@@ -10,12 +10,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
-import anthropic
+from ig_brain.groq_client import GroqClientWrapper
 import requests
 import random
 import json
 
-from ig_brain.config import ANTHROPIC_KEY, ACCOUNT_USERNAME, ACCOUNT_USER_ID, REPLY_SLEEP_MIN, REPLY_SLEEP_MAX, REPLIED_FILE
+from ig_brain.config import GROQ_KEY, ACCOUNT_USERNAME, ACCOUNT_USER_ID, REPLY_SLEEP_MIN, REPLY_SLEEP_MAX, REPLIED_FILE
 from ig_brain.replier import (
     load_replied, save_replied, load_web_session,
     fetch_posts, fetch_comments, generate_reply, post_reply
@@ -40,7 +40,7 @@ def decode_shortcode(code: str) -> str:
         n = n * 64 + alphabet.index(c)
     return str(n)
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+client_ai = GroqClientWrapper(api_key=GROQ_KEY)
 
 CHECKS    = 5      # number of checks per run
 INTERVAL  = 60     # seconds between checks (1 minute)
@@ -73,7 +73,7 @@ for check_num in range(1, CHECKS + 1):
             for c in new:
                 print(f"  @{c['username']}: {c['text'][:60]}")
                 try:
-                    reply = generate_reply(client, c["text"], post["caption"])
+                    reply = generate_reply(client_ai, c["text"], post["caption"])
                     print(f"  Reply: {reply}")
                     ok = post_reply(session, post["id"], c["id"], reply)
                     if ok:
