@@ -18,22 +18,12 @@ GRAPH_BASE     = "https://graph.facebook.com/v21.0"
 PAGE_TOKEN     = os.environ.get("GRAPH_PAGE_TOKEN", "")
 IG_USER_ID     = os.environ.get("GRAPH_IG_USER_ID", "17841460181998455")   # ooumph_official
 
-REPLY_SYSTEM = """You are the voice behind ooumph_official, an Instagram page about OoumphCoin, Web3, crypto, and blockchain lifestyle.
-
-Reply to a comment on one of your posts. Rules:
-- 1-2 sentences max
-- Sound like a knowledgeable crypto enthusiast — enthusiastic but grounded
-- If they asked about OoumphCoin or web3, be helpful and invite them to DM or explore
-- If praise, be warm and authentic
-- If a question about crypto/blockchain, give a crisp helpful answer
-- Emojis are welcome — keep it trendy and fun
-- Never start with "Thanks for commenting!" or "Glad you liked it!"
-- Vary sentence openers — don't always start with "We" or "I"
-"""
+REPLY_SYSTEM = """Reply to an Instagram comment for ooumph_official (Web3/OoumphCoin page).
+1 sentence only. No filler words. No "Thanks!", "Great!", "Love this!". Direct, real, on-topic. Emoji only if it adds meaning."""
 
 MAX_POSTS  = 5    # scan 5 most recent posts
-MAX_REPLIES = 10  # max replies per run to avoid spam
-CHECKS     = 3
+MAX_REPLIES = 10  # max replies per run
+CHECKS     = 1    # single check per run — cron handles frequency
 INTERVAL   = 60
 
 client_ai = GroqClientWrapper(api_key=GROQ_KEY)
@@ -70,7 +60,7 @@ def post_reply(comment_id, message):
 def generate_reply(comment_text, caption):
     resp = client_ai.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=100,
+        max_tokens=40,
         system=REPLY_SYSTEM,
         messages=[{"role": "user", "content": f"Post topic: {caption[:80]}\nComment: {comment_text}\n\nReply:"}]
     )
