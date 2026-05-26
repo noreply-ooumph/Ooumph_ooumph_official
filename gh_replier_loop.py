@@ -42,7 +42,9 @@ def decode_shortcode(code: str) -> str:
 
 client_ai = GroqClientWrapper(api_key=GROQ_KEY)
 
-CHECKS    = 5      # number of checks per run
+CHECKS    = 3      # number of checks per run
+MAX_POSTS     = 3    # only scan the 3 most recent posts
+MAX_ERRORS    = 2    # stop immediately after this many rate-limit errors
 INTERVAL  = 60     # seconds between checks (1 minute)
 
 print(f"[REPLIER] Starting loop: {CHECKS} checks × {INTERVAL}s = {CHECKS} min window")
@@ -65,10 +67,22 @@ for check_num in range(1, CHECKS + 1):
         print(f"  Posts: {len(posts)} | Already replied: {len(replied)}")
         new_total = 0
 
-        for post in posts:
+        error_count = 0
+        for post in posts[:MAX_POSTS]:
+            if error_count >= MAX_ERRORS:
+                print(f"  Rate-limit threshold hit — stopping this run to protect the account.")
+                break
             print(f"  Checking post {post['code']}...")
-            comments = fetch_comments(post["code"], session, post_id=post.get("id", ""))
-            new      = [c for c in comments if str(c["id"]) not in replied and c["text"].strip()]
+            try:
+                comments = fetch_comments(post["code"], session, post_id=post.get("id", ""))
+            except Exception as fe:
+                err_str = str(fe)
+                print(f"  fetch error: {err_str[:80]}")
+                if "feedback_required" in err_str or "Please wait" in err_str or "401" in err_str:
+                    error_count += 1
+                    print(f"  Rate-limit detected ({error_count}/{MAX_ERRORS})")
+                continue
+            new = [c for c in comments if str(c["id"]) not in replied and c["text"].strip()]
 
             for c in new:
                 print(f"  @{c['username']}: {c['text'][:60]}")
@@ -87,11 +101,13 @@ for check_num in range(1, CHECKS + 1):
                     time.sleep(10)
 
         print(f"  Done. Replied to {new_total} new comments this check.")
+        if error_count >= MAX_ERRORS:
+            print(f"  Exiting early to avoid further rate-limiting.")
+            break
 
     except Exception as e:
         print(f"  Check error: {e}")
 
-    # Wait 1 minute before next check (skip wait on last loop)
     if check_num < CHECKS:
         print(f"  Waiting {INTERVAL}s...")
         time.sleep(INTERVAL)
