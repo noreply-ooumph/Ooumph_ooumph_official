@@ -1,87 +1,73 @@
 """
-Image generation using HuggingFace free FLUX model.
-Falls back to PIL-styled card if HF is unavailable.
+Image generation using Pollinations.ai (free, no API key, works from GitHub Actions).
+Falls back to PIL-styled card if unavailable.
 """
-import time
-import requests
+import time, random, requests
 from pathlib import Path
+from urllib.parse import quote
 from .config import IMAGES_DIR
 
-
-HF_API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
-HF_HEADERS = {"Content-Type": "application/json"}  # no token needed for public models
+POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}?width=1080&height=1080&nologo=true&seed={seed}&model=flux"
 
 
 def generate_image_hf(prompt: str) -> Path:
-    """Try HuggingFace FLUX first; fall back to PIL card on any error."""
-    print(f"  Generating image via HuggingFace FLUX...")
+    """Generate image via Pollinations.ai; fall back to PIL card on error."""
+    print(f"  Generating image via Pollinations.ai...")
     try:
-        payload = {"inputs": prompt, "parameters": {"width": 1024, "height": 1024}}
-        resp = requests.post(HF_API_URL, headers=HF_HEADERS, json=payload, timeout=60)
+        seed = random.randint(1, 99999)
+        url  = POLLINATIONS_URL.format(prompt=quote(prompt), seed=seed)
+        resp = requests.get(url, timeout=90)
         if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image"):
             filename = IMAGES_DIR / f"post_{int(time.time())}.jpg"
             filename.write_bytes(resp.content)
-            print(f"  HF image saved: {filename}")
+            print(f"  Pollinations image saved: {filename}")
             return filename
-        elif resp.status_code == 503:
-            print(f"  HF model loading, retrying once...")
-            time.sleep(20)
-            resp = requests.post(HF_API_URL, headers=HF_HEADERS, json=payload, timeout=90)
-            if resp.status_code == 200 and resp.headers.get("content-type","").startswith("image"):
-                filename = IMAGES_DIR / f"post_{int(time.time())}.jpg"
-                filename.write_bytes(resp.content)
-                return filename
+        else:
+            print(f"  Pollinations returned {resp.status_code}, using PIL card.")
     except Exception as e:
-        print(f"  HF unavailable ({type(e).__name__}), using PIL card.")
-
+        print(f"  Pollinations unavailable ({type(e).__name__}), using PIL card.")
     return generate_image_pil(prompt)
 
 
 def generate_image_pil(prompt: str) -> Path:
-    """Generate a cinematic dark-style text card using PIL."""
+    """Generate a styled text card using PIL as fallback."""
     try:
-        from PIL import Image, ImageDraw, ImageFilter
+        from PIL import Image, ImageDraw
         import textwrap, math
 
         W, H = 1080, 1080
-        img  = Image.new("RGB", (W, H), (8, 6, 18))
+        BG   = (4, 8, 20)
+        MID  = (20, 40, 90)
+        TEXT = (120, 200, 255)
+        SUB  = (80, 160, 220)
+        BRAND   = "ooumph_official"
+        Web3 · OoumphCoin · Future = "TAGLINE"
+
+        img  = Image.new("RGB", (W, H), BG)
         draw = ImageDraw.Draw(img)
 
-        # Dark purple-to-black radial-like gradient via horizontal bands
         for y in range(H):
             t = y / H
-            r = int(8  + 30  * math.sin(t * math.pi))
-            g = int(6  + 10  * math.sin(t * math.pi))
-            b = int(18 + 50  * math.sin(t * math.pi))
+            r = int(BG[0] + (MID[0]-BG[0]) * math.sin(t * math.pi))
+            g = int(BG[1] + (MID[1]-BG[1]) * math.sin(t * math.pi))
+            b = int(BG[2] + (MID[2]-BG[2]) * math.sin(t * math.pi))
             draw.line([(0, y), (W, y)], fill=(r, g, b))
 
-        # Decorative border lines
-        for offset, color in [(30,(60,40,100)),(36,(40,25,70)),(42,(25,15,50))]:
-            draw.rectangle([offset, offset, W-offset, H-offset], outline=color, width=1)
+        for offset, alpha in [(30, 160), (36, 120), (42, 80)]:
+            c = tuple(int(x * alpha // 255) for x in TEXT)
+            draw.rectangle([offset, offset, W-offset, H-offset], outline=c, width=1)
 
-        # Glowing centre circle hint
-        for radius in range(300, 250, -10):
-            alpha = int((300 - radius) * 0.8)
-            draw.ellipse([W//2-radius, H//2-radius, W//2+radius, H//2+radius],
-                         outline=(alpha, int(alpha*0.6), int(alpha*1.5)), width=1)
-
-        # Topic text — clean, large, centered
-        words   = prompt.replace("cinematic","").replace("dramatic","").strip()
+        words   = prompt.replace("cinematic","").replace("inspiring","").strip()
         wrapped = textwrap.wrap(words[:120], width=18)
-        y_pos   = H//2 - len(wrapped)*45
+        y_pos   = H//2 - len(wrapped) * 45
         for line in wrapped[:5]:
-            # Shadow
-            draw.text((W//2+2, y_pos+2), line.upper(), fill=(20,10,40), anchor="mm")
-            # Main text
-            draw.text((W//2, y_pos), line.upper(), fill=(220, 200, 255), anchor="mm")
+            draw.text((W//2+2, y_pos+2), line.upper(), fill=tuple(x//5 for x in TEXT), anchor="mm")
+            draw.text((W//2,   y_pos),   line.upper(), fill=TEXT, anchor="mm")
             y_pos += 90
 
-        # Horizontal divider
-        draw.line([(W//2-120, H-140), (W//2+120, H-140)], fill=(100, 80, 160), width=1)
-
-        # Brand name
-        draw.text((W//2, H-100), "story.matters_", fill=(160, 140, 220), anchor="mm")
-        draw.text((W//2, H-68),  "AI · Storytelling · Imagination", fill=(80, 65, 120), anchor="mm")
+        draw.line([(W//2-120, H-140), (W//2+120, H-140)], fill=SUB, width=1)
+        draw.text((W//2, H-100), BRAND,   fill=TEXT, anchor="mm")
+        draw.text((W//2, H-68),  Web3 · OoumphCoin · Future, fill=SUB,  anchor="mm")
 
         filename = IMAGES_DIR / f"post_{int(time.time())}.jpg"
         img.save(filename, "JPEG", quality=95)
